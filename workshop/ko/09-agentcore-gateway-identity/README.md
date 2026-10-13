@@ -232,7 +232,7 @@ def wait_until(describe_fn) -> dict:
 
 **1-6.** Gateway를 생성하고, Petstore의 공개 OpenAPI 스펙을 Target으로 등록하는 함수를 작성합니다.
 
-- `authorizerType="CUSTOM_JWT"`와 `authorizerConfiguration`에 1-3에서 만든 Cognito 정보를 그대로 넣습니다. "Cognito가 발급한, 이 client_id와 이 scope를 가진 토큰만 통과시킨다"는 Inbound Auth 규칙입니다.
+- `authorizerType="CUSTOM_JWT"`와 `authorizerConfiguration`에 1-3에서 만든 Cognito 정보를 그대로 넣습니다. "Cognito가 발급한, 이 client_id를 가진 토큰만 통과시킨다"는 Inbound Auth 규칙입니다. (`allowedScopes`로 scope까지 추가 검증할 수도 있지만, 이 필드는 비교적 최근에 추가되어 botocore 버전에 따라 지원하지 않을 수 있어 이번 실습에서는 뺐습니다.)
 - Petstore의 공개 스펙은 그대로 쓸 수 없고 두 가지를 손질해야 합니다. `servers`가 `/api/v3`처럼 상대 경로인데 Gateway는 절대 HTTPS URL을 요구하고, `/pet/{petId}/uploadImage` 엔드포인트가 Gateway의 OpenAPI 임포터가 지원하지 않는 `application/octet-stream` 요청 바디를 씁니다.
 - `credentialProviderConfigurations`는 지정하지 않습니다. `GATEWAY_IAM_ROLE`은 Gateway가 SigV4로 서명해서 호출하는 AWS 서비스용 옵션이라, 인증이 전혀 필요 없는 Petstore 같은 공개 API에는 이 파라미터를 생략하면 됩니다.
 
@@ -250,7 +250,6 @@ def setup_gateway_and_target(cognito_info: dict, role_arn: str) -> dict:
             "customJWTAuthorizer": {
                 "discoveryUrl": cognito_info["discovery_url"],
                 "allowedClients": [cognito_info["client_id"]],
-                "allowedScopes": [cognito_info["scope"]],
             }
         },
         description="Workshop: Gateway exposing the Petstore OpenAPI as MCP tools",
@@ -620,7 +619,8 @@ cd -
 |---|---|
 | `create_gateway` 호출 시 `AccessDeniedException` | 방금 만든 IAM 역할이 아직 전파되지 않았을 가능성이 큽니다. 1분 정도 기다렸다가 `setup_gateway.py`를 다시 실행하세요. |
 | Gateway 상태가 `FAILED`로 멈춤 | `get_gateway`의 `statusReasons` 필드에 원인이 나옵니다. 대부분 `roleArn`에 필요한 권한이 빠진 경우입니다. |
-| `gateway_agent.py` 실행 시 `401 Unauthorized` | 토큰이 만료되었거나(Cognito 토큰은 기본 1시간) `allowedScopes`/`allowedClients`가 Gateway 설정과 다릅니다. `gateway_agent.py`는 실행할 때마다 새 토큰을 받아오므로 다시 실행해보세요. |
+| `gateway_agent.py` 실행 시 `401 Unauthorized` | 토큰이 만료되었거나(Cognito 토큰은 기본 1시간) `allowedClients`가 Gateway 설정과 다릅니다. `gateway_agent.py`는 실행할 때마다 새 토큰을 받아오므로 다시 실행해보세요. |
+| `create_gateway` 호출 시 `ParamValidationError: Unknown parameter ... allowedScopes` | botocore 버전이 오래되어 `allowedScopes` 필드를 모르는 경우입니다. 이 가이드의 코드에는 이미 `allowedScopes`가 빠져 있으니, `labs/setup_gateway.py`에 다른 버전을 붙여넣지 않았는지 확인하세요. |
 | `create_gateway_target` 호출 시 OpenAPI 스펙 관련 오류 | Petstore 서버가 일시적으로 응답하지 않을 수 있습니다. `requests.get(PETSTORE_OPENAPI_URL)`을 단독으로 실행해 스펙이 정상적으로 받아지는지 먼저 확인하세요. |
 | 모든 스크립트에서 `FileNotFoundError: gateway_config.json` | 스크립트를 다른 위치에서 실행했을 가능성이 큽니다. 다른 챕터와 동일하게 `labs/` 디렉토리에서 실행하세요. |
 | `outbound_auth_demo.py` 실행 시 `AccessDeniedException: ... can't call Identity endpoint directly` | `requires_api_key`가 Workload Identity를 자동으로 만들려고 할 때 나는 에러입니다. AgentCore Runtime 밖에서는 이 자동 생성 경로를 아직 못 씁니다. `register_demo_credential()`로 미리 만들어두고 `.agentcore.json`에 저장해두는 지금 코드처럼 우회해야 합니다. |

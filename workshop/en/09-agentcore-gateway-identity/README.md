@@ -232,7 +232,7 @@ def wait_until(describe_fn) -> dict:
 
 **1-6.** Write a function that creates the Gateway and registers Petstore's public OpenAPI spec as a Target.
 
-- Set `authorizerType="CUSTOM_JWT"` and pass the Cognito information from 1-3 straight into `authorizerConfiguration`. This is the Inbound Auth rule: "only let through tokens issued by this Cognito, with this client_id and this scope."
+- Set `authorizerType="CUSTOM_JWT"` and pass the Cognito information from 1-3 straight into `authorizerConfiguration`. This is the Inbound Auth rule: "only let through tokens issued by this Cognito, with this client_id." (You can also enforce the scope with `allowedScopes`, but that field was added fairly recently and isn't supported by every botocore version, so this lab leaves it out.)
 - The public Petstore spec can't be used as-is -- it needs two fixes. `servers` is a relative path like `/api/v3`, but the Gateway requires an absolute HTTPS URL, and the `/pet/{petId}/uploadImage` endpoint uses an `application/octet-stream` request body that the Gateway's OpenAPI importer doesn't support.
 - Don't set `credentialProviderConfigurations` at all. `GATEWAY_IAM_ROLE` is meant for AWS services the Gateway signs requests to with SigV4 -- for a public API like Petstore that needs no auth whatsoever, just omit the parameter.
 
@@ -250,7 +250,6 @@ def setup_gateway_and_target(cognito_info: dict, role_arn: str) -> dict:
             "customJWTAuthorizer": {
                 "discoveryUrl": cognito_info["discovery_url"],
                 "allowedClients": [cognito_info["client_id"]],
-                "allowedScopes": [cognito_info["scope"]],
             }
         },
         description="Workshop: Gateway exposing the Petstore OpenAPI as MCP tools",
@@ -620,7 +619,8 @@ Before deleting, double check that `gateway_config.json` points at the resources
 |---|---|
 | `AccessDeniedException` when calling `create_gateway` | The IAM role you just created probably hasn't propagated yet. Wait about a minute and re-run `setup_gateway.py`. |
 | Gateway status stuck at `FAILED` | Check the `statusReasons` field from `get_gateway`. Most often, `roleArn` is missing a required permission. |
-| `401 Unauthorized` when running `gateway_agent.py` | The token expired (Cognito tokens default to 1 hour), or `allowedScopes`/`allowedClients` don't match the Gateway's configuration. Re-run `gateway_agent.py` -- it fetches a fresh token every time. |
+| `401 Unauthorized` when running `gateway_agent.py` | The token expired (Cognito tokens default to 1 hour), or `allowedClients` doesn't match the Gateway's configuration. Re-run `gateway_agent.py` -- it fetches a fresh token every time. |
+| `create_gateway` fails with `ParamValidationError: Unknown parameter ... allowedScopes` | Your botocore version is old enough that it doesn't know the `allowedScopes` field. This guide's code already omits `allowedScopes` -- check that you didn't paste in an older version of `labs/setup_gateway.py`. |
 | Error about the OpenAPI spec when calling `create_gateway_target` | The Petstore server may be temporarily unavailable. Run `requests.get(PETSTORE_OPENAPI_URL)` on its own first to confirm the spec is fetched correctly. |
 | `FileNotFoundError: gateway_config.json` in any script | You likely ran the script from a different working directory. As in other chapters, run it from the `labs/` directory. |
 | `outbound_auth_demo.py` fails with `AccessDeniedException: ... can't call Identity endpoint directly` | This happens when `requires_api_key` tries to auto-create a Workload Identity. That auto-create path isn't available yet outside of AgentCore Runtime. Work around it the way the code here does: pre-create it with `register_demo_credential()` and save it to `.agentcore.json`. |

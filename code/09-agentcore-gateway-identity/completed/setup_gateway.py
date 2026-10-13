@@ -146,7 +146,6 @@ def setup_gateway_and_target(cognito_info: dict, role_arn: str) -> dict:
             "customJWTAuthorizer": {
                 "discoveryUrl": cognito_info["discovery_url"],
                 "allowedClients": [cognito_info["client_id"]],
-                "allowedScopes": [cognito_info["scope"]],
             }
         },
         description="Workshop: Gateway exposing the Petstore OpenAPI as MCP tools",
