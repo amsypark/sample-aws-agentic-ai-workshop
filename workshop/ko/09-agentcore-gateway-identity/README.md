@@ -452,7 +452,7 @@ WORKLOAD_IDENTITY_NAME = "workshop-outbound-auth-identity"
 os.environ["AWS_REGION"] = REGION
 ```
 
-**4-3.** API 키를 Identity에 등록하고, 그 키를 꺼내 올 때 쓰는 Workload Identity를 미리 만들어두는 함수를 작성합니다.
+**4-3.** API 키를 Identity에 등록하고, 그 키를 꺼내 올 때 쓰는 Workload Identity를 미리 만들어두는 함수를 작성합니다. 둘 다 이름이 계정 안에서 고유해야 해서, 다시 실행하면 `already exists` 에러가 납니다. 그 경우 기존 것을 그대로 재사용합니다.
 
 > **Workload Identity를 왜 미리 만드나요?**
 > `requires_api_key` 데코레이터는 Workload Identity가 없으면 자동으로 하나 만들어주는 기능이 있습니다. 다만 이 자동 생성 경로는 AgentCore Runtime 밖(지금처럼 로컬에서 직접 실행하는 경우)에서는 아직 지원되지 않습니다. 그래서 control-plane API로 미리 만들어두고 그 이름을 `.agentcore.json`에 저장해두면, 데코레이터가 그 설정을 그대로 읽어서 씁니다.
@@ -462,10 +462,20 @@ def register_demo_credential() -> None:
     client = boto3.client("bedrock-agentcore-control", region_name=REGION)
 
     print("1) Registering a sample API key with Identity...")
-    client.create_api_key_credential_provider(name=PROVIDER_NAME, apiKey="demo-secret-456")
+    try:
+        client.create_api_key_credential_provider(name=PROVIDER_NAME, apiKey="demo-secret-456")
+    except client.exceptions.ValidationException as e:
+        if "already exists" not in str(e):
+            raise
+        print(f"   Provider '{PROVIDER_NAME}' already exists, reusing it.")
 
     print("2) Pre-provisioning the workload identity...")
-    client.create_workload_identity(name=WORKLOAD_IDENTITY_NAME, allowedResourceOauth2ReturnUrls=[])
+    try:
+        client.create_workload_identity(name=WORKLOAD_IDENTITY_NAME, allowedResourceOauth2ReturnUrls=[])
+    except (client.exceptions.ConflictException, client.exceptions.ValidationException) as e:
+        if "already exists" not in str(e).lower():
+            raise
+        print(f"   Workload identity '{WORKLOAD_IDENTITY_NAME}' already exists, reusing it.")
 
     with open(".agentcore.json", "w") as f:
         json.dump(

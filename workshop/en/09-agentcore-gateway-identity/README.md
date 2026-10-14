@@ -452,7 +452,7 @@ WORKLOAD_IDENTITY_NAME = "workshop-outbound-auth-identity"
 os.environ["AWS_REGION"] = REGION
 ```
 
-**4-3.** Write a function that registers an API key with Identity, and pre-provisions the Workload Identity used to retrieve it.
+**4-3.** Write a function that registers an API key with Identity, and pre-provisions the Workload Identity used to retrieve it. Both names must be unique within the account, so a re-run raises an `already exists` error; in that case we simply reuse the existing ones.
 
 > **Why pre-provision the Workload Identity?**
 > The `requires_api_key` decorator can create a Workload Identity automatically if one doesn't exist. That auto-create path isn't supported yet outside of AgentCore Runtime (like running locally, as we're doing here). So we create it ahead of time through the control plane API, save its name to `.agentcore.json`, and the decorator picks up that config instead.
@@ -462,10 +462,20 @@ def register_demo_credential() -> None:
     client = boto3.client("bedrock-agentcore-control", region_name=REGION)
 
     print("1) Registering a sample API key with Identity...")
-    client.create_api_key_credential_provider(name=PROVIDER_NAME, apiKey="demo-secret-456")
+    try:
+        client.create_api_key_credential_provider(name=PROVIDER_NAME, apiKey="demo-secret-456")
+    except client.exceptions.ValidationException as e:
+        if "already exists" not in str(e):
+            raise
+        print(f"   Provider '{PROVIDER_NAME}' already exists, reusing it.")
 
     print("2) Pre-provisioning the workload identity...")
-    client.create_workload_identity(name=WORKLOAD_IDENTITY_NAME, allowedResourceOauth2ReturnUrls=[])
+    try:
+        client.create_workload_identity(name=WORKLOAD_IDENTITY_NAME, allowedResourceOauth2ReturnUrls=[])
+    except (client.exceptions.ConflictException, client.exceptions.ValidationException) as e:
+        if "already exists" not in str(e).lower():
+            raise
+        print(f"   Workload identity '{WORKLOAD_IDENTITY_NAME}' already exists, reusing it.")
 
     with open(".agentcore.json", "w") as f:
         json.dump(
