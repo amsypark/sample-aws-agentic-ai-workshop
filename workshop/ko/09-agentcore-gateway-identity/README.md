@@ -113,7 +113,7 @@ PETSTORE_OPENAPI_URL = "https://petstore3.swagger.io/api/v3/openapi.json"
 CONFIG_FILE = "gateway_config.json"
 ```
 
-**1-3.** Cognito 리소스를 만드는 함수를 작성합니다. User Pool, Resource Server(스코프 `gateway/invoke` 정의), App Client(`client_credentials` 흐름), 토큰 엔드포인트용 도메인까지 네 가지를 순서대로 만듭니다. 이 설정이 "누가 Gateway를 호출할 수 있는지"(Inbound Auth)를 결정합니다.
+**1-3.** Cognito 리소스를 만드는 함수를 작성합니다. User Pool, Resource Server(스코프 `gateway/invoke` 정의), App Client(`client_credentials` 흐름), 토큰 엔드포인트용 도메인까지 네 가지를 순서대로 만듭니다. 이 설정이 "누가 Gateway를 호출할 수 있는지"(Inbound Auth)를 결정합니다. 같은 이름의 User Pool이 이미 있으면(스크립트를 다시 실행한 경우) 지우고 새로 만들어, 아래에서 받는 client secret이 항상 최신 상태가 되게 합니다.
 
 ```py
 def random_suffix(n: int = 6) -> str:
@@ -124,6 +124,13 @@ def setup_cognito() -> dict:
     print("1) Setting up Cognito (User Pool, Resource Server, App Client, domain)...")
     cognito = boto3.client("cognito-idp", region_name=REGION)
 
+    # Re-running this script should not pile up duplicate pools: reuse one if it exists.
+    existing = [p for p in cognito.list_user_pools(MaxResults=60)["UserPools"] if p["Name"] == POOL_NAME]
+    for pool in existing:  # start clean so the client secret below is fresh
+        old_domain = cognito.describe_user_pool(UserPoolId=pool["Id"])["UserPool"].get("Domain")
+        if old_domain:
+            cognito.delete_user_pool_domain(Domain=old_domain, UserPoolId=pool["Id"])
+        cognito.delete_user_pool(UserPoolId=pool["Id"])
     user_pool_id = cognito.create_user_pool(PoolName=POOL_NAME)["UserPool"]["Id"]
 
     cognito.create_resource_server(
@@ -234,6 +241,7 @@ def wait_until(describe_fn) -> dict:
 
 - `authorizerType="CUSTOM_JWT"`와 `authorizerConfiguration`에 1-3에서 만든 Cognito 정보를 그대로 넣습니다. "Cognito가 발급한, 이 client_id를 가진 토큰만 통과시킨다"는 Inbound Auth 규칙입니다. (`allowedScopes`로 scope까지 추가 검증할 수도 있지만, 이 필드는 비교적 최근에 추가되어 botocore 버전에 따라 지원하지 않을 수 있어 이번 실습에서는 뺐습니다.)
 - Petstore의 공개 스펙은 그대로 쓸 수 없고 두 가지를 손질해야 합니다. `servers`가 `/api/v3`처럼 상대 경로인데 Gateway는 절대 HTTPS URL을 요구하고, `/pet/{petId}/uploadImage` 엔드포인트가 Gateway의 OpenAPI 임포터가 지원하지 않는 `application/octet-stream` 요청 바디를 씁니다.
+- Gateway와 Target은 이름이 계정 안에서 고유해야 합니다. 스크립트를 다시 실행하면 `ConflictException`이 나므로, 그때는 기존 것을 찾아 재사용하고 Gateway만 새 Cognito 설정으로 갱신합니다. 중간에 실패해도 그냥 다시 실행하면 됩니다.
 - `credentialProviderConfigurations`는 지정하지 않습니다. `GATEWAY_IAM_ROLE`은 Gateway가 SigV4로 서명해서 호출하는 AWS 서비스용 옵션이라, 인증이 전혀 필요 없는 Petstore 같은 공개 API에는 이 파라미터를 생략하면 됩니다.
 
 ```py
@@ -241,19 +249,34 @@ def setup_gateway_and_target(cognito_info: dict, role_arn: str) -> dict:
     client = boto3.client("bedrock-agentcore-control", region_name=REGION)
 
     print("3) Creating the Gateway (Inbound Auth: Cognito JWT) and waiting for it to be READY...")
-    gateway_id = client.create_gateway(
-        name=GATEWAY_NAME,
-        roleArn=role_arn,
-        protocolType="MCP",
-        authorizerType="CUSTOM_JWT",
-        authorizerConfiguration={
-            "customJWTAuthorizer": {
-                "discoveryUrl": cognito_info["discovery_url"],
-                "allowedClients": [cognito_info["client_id"]],
-            }
-        },
-        description="Workshop: Gateway exposing the Petstore OpenAPI as MCP tools",
-    )["gatewayId"]
+    authorizer = {
+        "customJWTAuthorizer": {
+            "discoveryUrl": cognito_info["discovery_url"],
+            "allowedClients": [cognito_info["client_id"]],
+        }
+    }
+    try:
+        gateway_id = client.create_gateway(
+            name=GATEWAY_NAME,
+            roleArn=role_arn,
+            protocolType="MCP",
+            authorizerType="CUSTOM_JWT",
+            authorizerConfiguration=authorizer,
+            description="Workshop: Gateway exposing the Petstore OpenAPI as MCP tools",
+        )["gatewayId"]
+    except client.exceptions.ConflictException:
+        # Left over from an earlier run: reuse it, but point it at the Cognito pool we just made.
+        gateway_id = next(g["gatewayId"] for g in client.list_gateways()["items"] if g["name"] == GATEWAY_NAME)
+        print(f"   Gateway '{GATEWAY_NAME}' already exists ({gateway_id}), reusing it.")
+        wait_until(lambda: client.get_gateway(gatewayIdentifier=gateway_id))
+        client.update_gateway(
+            gatewayIdentifier=gateway_id,
+            name=GATEWAY_NAME,
+            roleArn=role_arn,
+            protocolType="MCP",
+            authorizerType="CUSTOM_JWT",
+            authorizerConfiguration=authorizer,
+        )
     gateway_url = wait_until(lambda: client.get_gateway(gatewayIdentifier=gateway_id))["gatewayUrl"]
 
     print("4) Registering the Petstore OpenAPI as a Target and waiting for it to be READY...")
@@ -261,12 +284,20 @@ def setup_gateway_and_target(cognito_info: dict, role_arn: str) -> dict:
     spec["servers"] = [{"url": "https://petstore3.swagger.io/api/v3"}]
     spec["paths"].pop("/pet/{petId}/uploadImage", None)
 
-    target_id = client.create_gateway_target(
-        gatewayIdentifier=gateway_id,
-        name=TARGET_NAME,
-        targetConfiguration={"mcp": {"openApiSchema": {"inlinePayload": json.dumps(spec)}}},
-        description="Public Swagger Petstore API",
-    )["targetId"]
+    try:
+        target_id = client.create_gateway_target(
+            gatewayIdentifier=gateway_id,
+            name=TARGET_NAME,
+            targetConfiguration={"mcp": {"openApiSchema": {"inlinePayload": json.dumps(spec)}}},
+            description="Public Swagger Petstore API",
+        )["targetId"]
+    except client.exceptions.ConflictException:
+        target_id = next(
+            tg["targetId"]
+            for tg in client.list_gateway_targets(gatewayIdentifier=gateway_id)["items"]
+            if tg["name"] == TARGET_NAME
+        )
+        print(f"   Target '{TARGET_NAME}' already exists ({target_id}), reusing it.")
     wait_until(lambda: client.get_gateway_target(gatewayIdentifier=gateway_id, targetId=target_id))
 
     return {"gateway_id": gateway_id, "gateway_url": gateway_url, "target_id": target_id}
