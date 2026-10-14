@@ -9,6 +9,7 @@ import json
 import requests
 from mcp.client.streamable_http import streamablehttp_client
 from strands import Agent
+from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
 
 CONFIG_FILE = "gateway_config.json"
@@ -48,5 +49,7 @@ if __name__ == "__main__":
         "Tell me which tool you used."
     )
 
-    agent = Agent(tools=[gateway_mcp_client])
+    bedrock_model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-6")
+
+    agent = Agent(model=bedrock_model, tools=[gateway_mcp_client])
     response = agent(user_input)
