@@ -189,6 +189,7 @@ CloudFormation 템플릿 **`code-server.yaml`은 이 리포지토리 루트에 �
 cd /workshop/code/00-setup
 chmod +x ./create-uv-env-ko.sh
 ./create-uv-env-ko.sh myenv 3.12
+source ~/.bashrc
 cd ..
 ```
 

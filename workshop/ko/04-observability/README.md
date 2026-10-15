@@ -533,14 +533,17 @@ Strands 로 계측한 트레이스 구조를 나타내면 다음과 같습니다
 Strands SDK 가 지원하는 OTEL 내보내기를 활성하려면 `otel` 추가 의존성과 함께 Strands Agents를 설치합니다. [00-setup](../00-setup/README.md)의 환경에는 `strands-agents[otel]`이 이미 포함되어 있으므로, 해당 챕터를 진행했다면 이 단계는 건너뛸 수 있습니다.
 
 ```bash
+uv add 'strands-agents[otel]'
+```
+
+<details>
+<summary>uv 대신 pip을 사용하는 경우</summary>
+
+```bash
 pip install 'strands-agents[otel]'
 ```
 
-또는 `uv`를 사용하는 경우
-
-```bash
-uv add 'strands-agents[otel]'
-```
+</details>
 
 ### 실습 1: 콘솔 트레이싱
 

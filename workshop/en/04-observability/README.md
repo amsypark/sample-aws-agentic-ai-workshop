@@ -534,14 +534,17 @@ The trace structure instrumented with Strands looks like this:
 To enable OTEL export supported by Strands SDK, install Strands Agents with the `otel` extra dependency. The environment from [00-setup](../00-setup/README.md) already pins `strands-agents[otel]`, so you can skip this if you followed that chapter.
 
 ```bash
+uv add 'strands-agents[otel]'
+```
+
+<details>
+<summary>If you use pip instead of uv</summary>
+
+```bash
 pip install 'strands-agents[otel]'
 ```
 
-Or if using `uv`:
-
-```bash
-uv add 'strands-agents[otel]'
-```
+</details>
 
 ### Lab 1: Console Tracing
 

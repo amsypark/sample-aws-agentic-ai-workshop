@@ -189,6 +189,7 @@ Run these commands in the code-server terminal. The repository is cloned at `/wo
 cd /workshop/code/00-setup
 chmod +x ./create-uv-env.sh
 ./create-uv-env.sh myenv 3.12
+source ~/.bashrc
 cd ..
 ```
 
