@@ -669,7 +669,7 @@ You can confirm that the agent connects to the AWS documentation MCP server to s
 Now let's add **Playwright MCP**. Playwright is a tool for automating web browsers, capable of visiting web pages, taking screenshots, filling out forms, and more.
 
 > [!NOTE]
-> Playwright MCP needs a browser. The workshop environment deployed from `code-server.yaml` ships with one preinstalled (Chrome for Testing), so the configuration below works as-is. In other environments without a browser (for example SageMaker Studio), Playwright MCP will not work properly — test that case in a local environment instead.
+> Playwright MCP needs a browser. In the workshop environment deployed from `code-server.yaml`, the `create-uv-env.sh` script you ran in chapter 00 installs Node.js 22 and Chrome, so the configuration below works as-is. If you opened your terminal before running the script, run `source ~/.bashrc` first so `npx` picks up Node.js 22. In other environments without a browser (for example SageMaker Studio), Playwright MCP will not work properly — test that case in a local environment instead.
 
 #### 2-1. Finding MCP Servers on mcpservers.org
 

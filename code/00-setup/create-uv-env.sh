@@ -150,12 +150,25 @@ fi
 
 print_info "Installing system packages..."
 
-# Install Node.js and npm
-print_info "Checking for Node.js and npm..."
-if ! command -v node &> /dev/null; then
-    print_warning "Node.js is not installed."
+# Install Node.js (needed for npx-based MCP servers such as Playwright MCP; requires 22+)
+NODE_MIN_MAJOR=22
+node_major() {
+    node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/'
+}
 
-    # On macOS
+print_info "Checking for Node.js and npm..."
+if command -v node &> /dev/null && [ "$(node_major)" -ge "$NODE_MIN_MAJOR" ]; then
+    print_success "Node.js is already installed."
+    node --version
+    npm --version
+else
+    if command -v node &> /dev/null; then
+        print_warning "Node.js $(node -v) is too old for Playwright MCP. Installing Node.js $NODE_MIN_MAJOR."
+    else
+        print_warning "Node.js is not installed."
+    fi
+
+    # macOS
     if [[ "$OSTYPE" == "darwin"* ]]; then
         if command -v brew &> /dev/null; then
             print_info "Installing Node.js with Homebrew..."
@@ -164,26 +177,82 @@ if ! command -v node &> /dev/null; then
             print_warning "Homebrew is not installed."
             print_info "Please install Node.js manually: https://nodejs.org/"
         fi
-    # On Linux
+    # Linux
     else
-        print_info "Installing the Node.js LTS release via NodeSource..."
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-        sudo dnf install -y nodejs
+        print_info "Installing Node.js $NODE_MIN_MAJOR via nvm..."
+        export NVM_DIR="$HOME/.nvm"
+        # nvm scripts can exit non-zero under set -e, so disable it temporarily
+        set +e
+        if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+        fi
+        . "$NVM_DIR/nvm.sh"
+        nvm install "$NODE_MIN_MAJOR"
+        nvm alias default "$NODE_MIN_MAJOR"
+        nvm use default
+        set -e
     fi
 
     # Verify the installation
-    if command -v node &> /dev/null; then
+    if command -v node &> /dev/null && [ "$(node_major)" -ge "$NODE_MIN_MAJOR" ]; then
         print_success "Node.js has been installed successfully!"
         node --version
         npm --version
+        print_info "Open a new terminal or run 'source ~/.bashrc' to use it in your current terminal."
     else
         print_warning "Node.js installation failed. Please install it manually."
         print_info "Installation URL: https://nodejs.org/"
     fi
-else
-    print_success "Node.js is already installed."
-    node --version
-    npm --version
+fi
+
+# Install Chrome for Playwright MCP (Linux only)
+# @playwright/mcp uses the 'chrome' channel by default and looks for the browser at /opt/google/chrome/chrome.
+CHROME_PATH="/opt/google/chrome/chrome"
+install_chrome() {
+    local arch
+    arch=$(uname -m)
+    if [ "$arch" = "x86_64" ]; then
+        if command -v dnf &> /dev/null; then
+            sudo dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+        elif command -v apt-get &> /dev/null; then
+            curl -fsSL -o /tmp/google-chrome-stable_current_amd64.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y /tmp/google-chrome-stable_current_amd64.deb
+            rm -f /tmp/google-chrome-stable_current_amd64.deb
+        else
+            print_warning "Neither dnf nor apt-get was found. Skipping Chrome installation."
+            return 1
+        fi
+    else
+        # Google does not publish Chrome for arm64 (Graviton), so use Playwright's Chrome for Testing instead.
+        print_info "Detected $arch. Installing Chrome for Testing..."
+        if command -v dnf &> /dev/null; then
+            sudo dnf install -y nss atk at-spi2-atk at-spi2-core cups-libs libdrm libxkbcommon libXcomposite libXdamage libXfixes libXrandr libXext libXi libX11 mesa-libgbm alsa-lib pango cairo expat
+        elif command -v apt-get &> /dev/null; then
+            sudo env "PATH=$PATH" npx --yes playwright@latest install-deps chromium
+        fi
+        npx --yes @playwright/mcp@latest install-browser chrome-for-testing
+        local chrome_bin
+        chrome_bin=$(find "$HOME/.cache/ms-playwright" -maxdepth 3 -type f -name chrome 2>/dev/null | grep -v headless | head -1)
+        if [ -z "$chrome_bin" ]; then
+            print_warning "Could not find the Chrome for Testing binary."
+            return 1
+        fi
+        sudo mkdir -p /opt/google/chrome
+        sudo ln -sf "$chrome_bin" "$CHROME_PATH"
+    fi
+}
+
+if [[ "$OSTYPE" != "darwin"* ]]; then
+    print_info "Checking for the Chrome browser used by Playwright MCP..."
+    if [ -x "$CHROME_PATH" ]; then
+        print_success "Chrome is already installed."
+    elif install_chrome && [ -x "$CHROME_PATH" ]; then
+        print_success "Chrome has been installed successfully!"
+    else
+        print_warning "Chrome installation failed. The Playwright MCP lab may not work."
+    fi
+    [ -x "$CHROME_PATH" ] && "$CHROME_PATH" --version || true
 fi
 
 # 5. Register the Jupyter kernel

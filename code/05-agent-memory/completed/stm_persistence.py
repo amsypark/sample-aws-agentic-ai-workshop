@@ -2,8 +2,11 @@
 import os
 import argparse
 from strands import Agent
+from strands.models import BedrockModel
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+
+bedrock_model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-6")
 
 MEMORY_ID = os.environ.get("AGENTCORE_MEMORY_ID", "your-memory-id-here")
 
@@ -22,6 +25,7 @@ def create_agent_with_memory(session_id: str, actor_id: str) -> Agent:
     )
     
     return Agent(
+        model=bedrock_model,
         system_prompt="You are a friendly assistant. Remember previous conversations and respond in context.",
         session_manager=session_manager
     )

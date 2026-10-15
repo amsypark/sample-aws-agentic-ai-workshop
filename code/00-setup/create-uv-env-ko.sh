@@ -158,12 +158,25 @@ fi
 
 print_info "시스템 패키지 설치 중..."
 
-# Node.js 및 npm 설치
-print_info "Node.js 및 npm 설치 확인 중..."
-if ! command -v node &> /dev/null; then
-    print_warning "Node.js가 설치되어 있지 않습니다."
+# Node.js 설치 (Playwright MCP 등 npx 기반 MCP 서버용, 22 이상 필요)
+NODE_MIN_MAJOR=22
+node_major() {
+    node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/'
+}
 
-    # macOS의 경우
+print_info "Node.js 및 npm 설치 확인 중..."
+if command -v node &> /dev/null && [ "$(node_major)" -ge "$NODE_MIN_MAJOR" ]; then
+    print_success "Node.js가 이미 설치되어 있습니다."
+    node --version
+    npm --version
+else
+    if command -v node &> /dev/null; then
+        print_warning "Node.js $(node -v)는 Playwright MCP에 너무 오래된 버전입니다. Node.js $NODE_MIN_MAJOR을 설치합니다."
+    else
+        print_warning "Node.js가 설치되어 있지 않습니다."
+    fi
+
+    # macOS
     if [[ "$OSTYPE" == "darwin"* ]]; then
         if command -v brew &> /dev/null; then
             print_info "Homebrew를 사용하여 Node.js를 설치합니다..."
@@ -172,26 +185,82 @@ if ! command -v node &> /dev/null; then
             print_warning "Homebrew가 설치되어 있지 않습니다."
             print_info "Node.js를 수동으로 설치해주세요: https://nodejs.org/"
         fi
-    # Linux의 경우
+    # Linux
     else
-        print_info "NodeSource를 통해 Node.js LTS를 설치합니다..."
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-        sudo dnf install -y nodejs
+        print_info "nvm을 통해 Node.js $NODE_MIN_MAJOR을 설치합니다..."
+        export NVM_DIR="$HOME/.nvm"
+        # nvm 스크립트는 set -e 환경에서 비정상 종료될 수 있으므로 잠시 해제
+        set +e
+        if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+        fi
+        . "$NVM_DIR/nvm.sh"
+        nvm install "$NODE_MIN_MAJOR"
+        nvm alias default "$NODE_MIN_MAJOR"
+        nvm use default
+        set -e
     fi
 
     # 설치 확인
-    if command -v node &> /dev/null; then
+    if command -v node &> /dev/null && [ "$(node_major)" -ge "$NODE_MIN_MAJOR" ]; then
         print_success "Node.js가 성공적으로 설치되었습니다!"
         node --version
         npm --version
+        print_info "새 터미널을 열거나 'source ~/.bashrc'를 실행해야 현재 터미널에도 적용됩니다."
     else
         print_warning "Node.js 설치에 실패했습니다. 수동으로 설치해주세요."
         print_info "설치 URL: https://nodejs.org/"
     fi
-else
-    print_success "Node.js가 이미 설치되어 있습니다."
-    node --version
-    npm --version
+fi
+
+# Playwright MCP용 Chrome 설치 (Linux 전용)
+# @playwright/mcp는 기본으로 'chrome' 채널을 사용하며 /opt/google/chrome/chrome 경로에서 브라우저를 찾습니다.
+CHROME_PATH="/opt/google/chrome/chrome"
+install_chrome() {
+    local arch
+    arch=$(uname -m)
+    if [ "$arch" = "x86_64" ]; then
+        if command -v dnf &> /dev/null; then
+            sudo dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+        elif command -v apt-get &> /dev/null; then
+            curl -fsSL -o /tmp/google-chrome-stable_current_amd64.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y /tmp/google-chrome-stable_current_amd64.deb
+            rm -f /tmp/google-chrome-stable_current_amd64.deb
+        else
+            print_warning "dnf/apt-get을 찾을 수 없어 Chrome 설치를 건너뜁니다."
+            return 1
+        fi
+    else
+        # Google은 arm64(Graviton)용 Chrome을 배포하지 않으므로 Playwright의 Chrome for Testing을 사용합니다.
+        print_info "$arch 환경이므로 Chrome for Testing을 설치합니다..."
+        if command -v dnf &> /dev/null; then
+            sudo dnf install -y nss atk at-spi2-atk at-spi2-core cups-libs libdrm libxkbcommon libXcomposite libXdamage libXfixes libXrandr libXext libXi libX11 mesa-libgbm alsa-lib pango cairo expat
+        elif command -v apt-get &> /dev/null; then
+            sudo env "PATH=$PATH" npx --yes playwright@latest install-deps chromium
+        fi
+        npx --yes @playwright/mcp@latest install-browser chrome-for-testing
+        local chrome_bin
+        chrome_bin=$(find "$HOME/.cache/ms-playwright" -maxdepth 3 -type f -name chrome 2>/dev/null | grep -v headless | head -1)
+        if [ -z "$chrome_bin" ]; then
+            print_warning "Chrome for Testing 바이너리를 찾을 수 없습니다."
+            return 1
+        fi
+        sudo mkdir -p /opt/google/chrome
+        sudo ln -sf "$chrome_bin" "$CHROME_PATH"
+    fi
+}
+
+if [[ "$OSTYPE" != "darwin"* ]]; then
+    print_info "Playwright MCP용 Chrome 브라우저 확인 중..."
+    if [ -x "$CHROME_PATH" ]; then
+        print_success "Chrome이 이미 설치되어 있습니다."
+    elif install_chrome && [ -x "$CHROME_PATH" ]; then
+        print_success "Chrome이 성공적으로 설치되었습니다!"
+    else
+        print_warning "Chrome 설치에 실패했습니다. Playwright MCP 실습이 동작하지 않을 수 있습니다."
+    fi
+    [ -x "$CHROME_PATH" ] && "$CHROME_PATH" --version || true
 fi
 
 # 5. Jupyter 커널 등록

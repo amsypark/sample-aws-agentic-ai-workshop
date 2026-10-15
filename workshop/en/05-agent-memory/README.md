@@ -256,8 +256,11 @@ STM remembers conversations even when the program is restarted, as long as the s
 import os
 import argparse
 from strands import Agent
+from strands.models import BedrockModel
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+
+bedrock_model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-6")
 
 MEMORY_ID = os.environ.get("AGENTCORE_MEMORY_ID", "your-memory-id-here")
 
@@ -274,6 +277,7 @@ def create_agent_with_memory(session_id: str, actor_id: str) -> Agent:
     )
     
     return Agent(
+        model=bedrock_model,
         system_prompt="You are a friendly assistant. Remember previous conversations and respond in context.",
         session_manager=session_manager
     )
@@ -443,11 +447,14 @@ import os
 import argparse
 import uuid
 from strands import Agent
+from strands.models import BedrockModel
 from bedrock_agentcore.memory.integrations.strands.config import (
     AgentCoreMemoryConfig,
     RetrievalConfig
 )
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+
+bedrock_model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-6")
 
 MEMORY_ID = os.environ.get("AGENTCORE_MEMORY_LTM_ID", "your-ltm-memory-id")
 
@@ -475,6 +482,7 @@ def create_agent(session_id: str, actor_id: str) -> Agent:
     )
 
     return Agent(
+        model=bedrock_model,
         system_prompt="""You are an assistant that learns about users.
         Remember important facts from conversations and use previously learned information in your responses.""",
         session_manager=session_manager
@@ -538,11 +546,14 @@ import os
 import argparse
 import uuid
 from strands import Agent
+from strands.models import BedrockModel
 from bedrock_agentcore.memory.integrations.strands.config import (
     AgentCoreMemoryConfig,
     RetrievalConfig
 )
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+
+bedrock_model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-6")
 
 MEMORY_ID = os.environ.get("AGENTCORE_MEMORY_LTM_ID", "your-ltm-memory-id")
 
@@ -569,6 +580,7 @@ def create_agent(session_id: str, actor_id: str) -> Agent:
     )
     
     return Agent(
+        model=bedrock_model,
         system_prompt="""You are an assistant that provides personalized recommendations.
         Learn user preferences and provide customized suggestions.""",
         session_manager=session_manager
@@ -683,9 +695,12 @@ import asyncio
 import streamlit as st
 from datetime import datetime
 from strands import Agent
+from strands.models import BedrockModel
 from strands_tools import calculator, current_time, python_repl
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+
+bedrock_model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-6")
 
 # Page configuration
 st.set_page_config(
@@ -732,6 +747,7 @@ def create_agent_with_memory():
     )
     
     return Agent(
+        model=bedrock_model,
         system_prompt="""You are a friendly assistant. 
         Remember conversations with users and use previous context in responses.
         Remember user names, preferences, and previously discussed topics.""",

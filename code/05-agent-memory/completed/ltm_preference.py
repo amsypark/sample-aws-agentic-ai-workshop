@@ -2,11 +2,14 @@ import os
 import argparse
 import uuid
 from strands import Agent
+from strands.models import BedrockModel
 from bedrock_agentcore.memory.integrations.strands.config import (
     AgentCoreMemoryConfig,
     RetrievalConfig
 )
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+
+bedrock_model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-6")
 
 MEMORY_ID = os.environ.get("AGENTCORE_MEMORY_LTM_ID", "your-ltm-memory-id")
 
@@ -33,6 +36,7 @@ def create_agent(session_id: str, actor_id: str) -> Agent:
     )
     
     return Agent(
+        model=bedrock_model,
         system_prompt="""You are an assistant that provides personalized recommendations.
         Learn user preferences and provide customized suggestions.""",
         session_manager=session_manager

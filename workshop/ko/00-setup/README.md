@@ -155,7 +155,7 @@ CloudFormation 템플릿 **`code-server.yaml`은 이 리포지토리 루트에 �
 
 | 모델 ID | 사용하는 파일 |
 |---|---|
-| `us.anthropic.claude-sonnet-4-6` | `01-single-agent/completed/models.py`, `01-single-agent/completed/self_extending.py`, `01-single-agent/completed/self_modifying.py`, `02-multi-agents/completed/agents_as_tools.py`, `02-multi-agents/completed/swarms.py`, `04-observability/completed/traces_console.py`, `04-observability/completed/traces_otlp.py`, `08-kiro-dev/completed/hanoi_tower.py` |
+| `us.anthropic.claude-sonnet-4-6` | `01-single-agent/completed/models.py`, `01-single-agent/completed/self_extending.py`, `01-single-agent/completed/self_modifying.py`, `02-multi-agents/completed/agents_as_tools.py`, `02-multi-agents/completed/swarms.py`, `04-observability/completed/traces_console.py`, `04-observability/completed/traces_otlp.py`, `05-agent-memory/completed/*.py`, `08-kiro-dev/completed/hanoi_tower.py` |
 | `us.amazon.nova-pro-v1:0` | `04-observability/completed/metrics_basic.py` |
 
 `us.` 접두사는 교차 리전 추론 프로파일을 의미합니다. 프로파일의 대상 리전에 대한 액세스 활성화는 콘솔이 함께 처리해 줍니다.
@@ -223,7 +223,7 @@ uv run --project 00-setup python 01-single-agent/completed/basic.py
 2. `uv`가 있는지 확인하고, 없으면 `curl -LsSf https://astral.sh/uv/install.sh | sh`로 설치할지 대화형으로 묻습니다. 입력을 기다리므로 무인 실행에는 적합하지 않습니다.
 3. `uv python pin <버전>`을 실행하고, `pyproject.toml`이 없을 때만 `uv init`을 실행하며(이 리포지토리에는 이미 있으므로 그대로 유지됩니다), 이어서 `uv add ipykernel jupyter`와 `uv sync`를 실행합니다.
 4. `install_korean_font.sh`를 실행합니다. 이 과정에서 `sudo`로 시스템 폰트를 설치합니다.
-5. Node.js가 없으면 설치합니다(macOS는 Homebrew, Linux는 NodeSource와 `dnf`).
+5. Node.js가 없거나 22 미만이면 설치합니다(macOS는 Homebrew, Linux는 nvm으로 Node.js 22). Linux에서는 Playwright MCP용 Chrome도 설치합니다(x86_64는 Google Chrome, arm64는 Chrome for Testing).
 6. 첫 번째 인자를 이름으로 하는 Jupyter 커널을 등록합니다. 표시 이름은 `myenv (UV)`가 됩니다.
 7. Python 버전, 설치된 패키지 목록, 등록된 커널 목록을 출력합니다.
 8. 상위 디렉터리로 이동해 `pyproject.toml`, `.venv`, `uv.lock`에 대한 심링크를 만듭니다. 리포지토리 루트에서도 `uv run`을 사용할 수 있도록 하기 위한 것이며, 같은 이름의 심링크가 아닌 파일이 이미 있으면 `<이름>.backup`으로 이름을 바꿉니다.

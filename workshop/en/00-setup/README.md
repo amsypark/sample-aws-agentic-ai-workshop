@@ -155,7 +155,7 @@ These are the model IDs the lab code actually uses:
 
 | Model ID | Used by |
 |---|---|
-| `us.anthropic.claude-sonnet-4-6` | `01-single-agent/completed/models.py`, `01-single-agent/completed/self_extending.py`, `01-single-agent/completed/self_modifying.py`, `02-multi-agents/completed/agents_as_tools.py`, `02-multi-agents/completed/swarms.py`, `04-observability/completed/traces_console.py`, `04-observability/completed/traces_otlp.py`, `08-kiro-dev/completed/hanoi_tower.py` |
+| `us.anthropic.claude-sonnet-4-6` | `01-single-agent/completed/models.py`, `01-single-agent/completed/self_extending.py`, `01-single-agent/completed/self_modifying.py`, `02-multi-agents/completed/agents_as_tools.py`, `02-multi-agents/completed/swarms.py`, `04-observability/completed/traces_console.py`, `04-observability/completed/traces_otlp.py`, `05-agent-memory/completed/*.py`, `08-kiro-dev/completed/hanoi_tower.py` |
 | `us.amazon.nova-pro-v1:0` | `04-observability/completed/metrics_basic.py` |
 
 The `us.` prefix means these are cross-region inference profiles. The console handles enabling access in the profile's destination regions for you.
@@ -222,7 +222,7 @@ In order, the script:
 1. Deletes any existing `.venv` in the current directory with `rm -rf .venv`.
 2. Checks for `uv`, and if it is missing asks interactively whether to install it with `curl -LsSf https://astral.sh/uv/install.sh | sh`. Because it prompts, it cannot run unattended.
 3. Runs `uv python pin <version>`, then `uv init` only if no `pyproject.toml` exists (this repository has one, so it is left alone), then `uv add ipykernel jupyter` and `uv sync`.
-4. Installs Node.js if it is missing (Homebrew on macOS, NodeSource plus `dnf` on Linux).
+4. Installs Node.js if it is missing or older than 22 (Homebrew on macOS, Node.js 22 via nvm on Linux). On Linux it also installs Chrome for Playwright MCP (Google Chrome on x86_64, Chrome for Testing on arm64).
 5. Registers a Jupyter kernel named after the first argument, displayed as `myenv (UV)`.
 6. Prints the Python version, the installed packages, and the registered kernels.
 7. Moves up to the parent directory and creates symlinks there for `pyproject.toml`, `.venv`, and `uv.lock`, so that `uv run` also works from the repository root. Any existing non-symlink file with those names is renamed to `<name>.backup` first.

@@ -4,9 +4,12 @@ import asyncio
 import streamlit as st
 from datetime import datetime
 from strands import Agent
+from strands.models import BedrockModel
 from strands_tools import calculator, current_time, python_repl
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+
+bedrock_model = BedrockModel(model_id="us.anthropic.claude-sonnet-4-6")
 
 # Page configuration
 st.set_page_config(
@@ -45,6 +48,7 @@ def create_agent_with_memory():
     )
     
     return Agent(
+        model=bedrock_model,
         system_prompt="""You are a friendly assistant. 
         Remember conversations with users and use previous context in responses.
         Remember user names, preferences, and previously discussed topics.""",
