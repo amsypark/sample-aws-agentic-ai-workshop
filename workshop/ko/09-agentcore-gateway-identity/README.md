@@ -55,6 +55,8 @@ Gateway는 REST API(OpenAPI 스펙), Lambda 함수, 다른 MCP 서버를 **MCP �
 
 이번 실습에서는 공개된 Swagger Petstore(반려동물 쇼핑몰 예제 API)의 OpenAPI 스펙을 Target으로 등록합니다. 등록하는 순간 그 API의 각 엔드포인트(`getPetById`, `addPet` 등)가 각각 하나의 MCP Tool로 자동 매핑됩니다. 새 코드를 짜거나 API를 감싸는 서버를 따로 만들 필요가 없습니다.
 
+<img width="3109" height="884" alt="c9-why-gw-ko" src="https://github.com/user-attachments/assets/f4f9d113-d5e4-473c-9287-5ad0759f4d84" />
+
 ## AgentCore Identity란?
 
 Identity는 두 가지를 책임집니다.
@@ -62,9 +64,13 @@ Identity는 두 가지를 책임집니다.
 - **Inbound Auth**: Gateway나 Runtime을 "누가 호출할 수 있는지" 검증합니다. 이번 실습에서는 Cognito User Pool이 발급한 JWT 토큰을 가진 클라이언트만 Gateway를 호출하게 만듭니다.
 - **Outbound Auth**: 에이전트가 "외부 서비스에 어떻게 인증해서 접근하는지"를 관리합니다. API 키나 OAuth2 토큰을 에이전트 코드에 직접 넣지 않고, Identity의 토큰 보관소(Token Vault)에 등록해두면 에이전트가 실행 중에 안전하게 꺼내 씁니다.
 
+<img width="2609" height="864" alt="c9-why-in-ko" src="https://github.com/user-attachments/assets/ad3d0307-8aeb-49e1-8ac3-73b98deb8bf5" />
+
 이번 실습의 1~3단계는 Inbound Auth를 직접 구성하고 호출까지 해봅니다. Outbound Auth는 4단계에서 코드 패턴과 함께 짧게 다룹니다.
 
 ## 0. 전체 흐름 미리 보기
+
+<img width="4078" height="1425" alt="c9-scenario-v2" src="https://github.com/user-attachments/assets/470fb4b8-4e14-4433-b62c-95299dcc50ba" />
 
 ```
 Cognito User Pool (Inbound Auth 발급자)
@@ -428,6 +434,8 @@ cd -
 > 이 섹션은 **선택 실습**입니다. 핵심 워크샵 흐름에는 영향을 주지 않으며, 건너뛰고 다음 챕터로 이동해도 됩니다.
 
 지금까지는 Petstore가 인증이 필요 없는 공개 API라서 `GATEWAY_IAM_ROLE`만으로 충분했습니다. 실제로는 Target으로 등록하려는 API가 자체 API 키나 OAuth2 토큰을 요구하는 경우가 많습니다. 이때 그 자격 증명을 코드에 하드코딩하지 않고 Identity의 **Credential Provider**에 등록해두는 것이 Outbound Auth입니다.
+
+<img width="3109" height="784" alt="c9-why-out-ko" src="https://github.com/user-attachments/assets/29578b32-c5dd-4300-a2db-9c74e870a54d" />
 
 1~3단계가 "누가 Gateway를 호출할 수 있는지"(Inbound Auth)를 Gateway 설정으로 다뤘다면, 이번 단계는 "에이전트가 외부 서비스에 어떻게 인증하는지"(Outbound Auth)를 `bedrock_agentcore.identity` 라이브러리로 직접 다뤄봅니다.
 
