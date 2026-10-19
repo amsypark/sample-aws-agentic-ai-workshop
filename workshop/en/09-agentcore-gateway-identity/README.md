@@ -55,6 +55,8 @@ Gateway is a fully managed service that **turns REST APIs (OpenAPI specs), Lambd
 
 In this lab, you'll register the OpenAPI spec of the public Swagger Petstore (a sample pet-store API) as a Target. The moment you register it, each endpoint of that API (`getPetById`, `addPet`, and so on) is automatically mapped to an MCP tool. There's no need to write new code or build a wrapper server for the API.
 
+<img width="3109" height="884" alt="c9-why-gw-en" src="https://github.com/user-attachments/assets/5e218fc5-7f26-455a-b011-d1dbaa210b93" />
+
 ## What is AgentCore Identity?
 
 Identity is responsible for two things.
@@ -62,9 +64,13 @@ Identity is responsible for two things.
 - **Inbound Auth**: verifies "who is allowed to call" a Gateway or Runtime. In this lab, only clients holding a JWT token issued by a Cognito User Pool will be allowed to call the Gateway.
 - **Outbound Auth**: manages "how the agent authenticates to external services." Instead of embedding API keys or OAuth2 tokens directly in agent code, you register them in Identity's Token Vault, and the agent retrieves them securely at runtime.
 
+<img width="2609" height="864" alt="c9-why-in-en" src="https://github.com/user-attachments/assets/ade65ba2-ea71-4e78-b55d-8d29571a054a" />
+
 Steps 1 through 3 of this lab set up and exercise Inbound Auth directly. Step 4 covers Outbound Auth briefly, with code patterns.
 
 ## 0. Overview of the Full Flow
+
+<img width="4078" height="1425" alt="c9-scenario-en" src="https://github.com/user-attachments/assets/8d3a6b36-f90e-4340-b975-9382bb46fab7" />
 
 ```
 Cognito User Pool (Inbound Auth issuer)
@@ -428,6 +434,8 @@ Congratulations! You've exposed an external API as an MCP tool through the Gatew
 > This section is **optional**. It doesn't affect the core workshop flow, and you can skip ahead to the next chapter.
 
 So far, `GATEWAY_IAM_ROLE` was enough because Petstore is a public API that needs no auth. In practice, the API you want to register as a Target often requires its own API key or OAuth2 token. Instead of hardcoding that credential in your code, registering it in Identity's **Credential Provider** is what Outbound Auth is for.
+
+<img width="3109" height="784" alt="c9-why-out-en" src="https://github.com/user-attachments/assets/d5f76751-3778-4dab-848a-59552d960d82" />
 
 Steps 1-3 handled "who can call the Gateway" (Inbound Auth) through Gateway settings. This step works directly with "how the agent authenticates to external services" (Outbound Auth) using the `bedrock_agentcore.identity` library.
 
